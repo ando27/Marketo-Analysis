@@ -206,7 +206,7 @@ export default function Sidebar({ data, filters, setFilters, volumeCutoffs, setV
                                                         const val = parseFloat(e.target.value);
                                                         setFilters(prev => {
                                                             const newCriteria = { ...prev.auditCriteria };
-                                                            newCriteria[col].val = val;
+                                                            newCriteria[col] = { ...newCriteria[col], val: val };
                                                             return { ...prev, auditCriteria: newCriteria };
                                                         });
                                                     }}

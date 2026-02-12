@@ -34,7 +34,6 @@ export default function Dashboard({ data, filters }) {
     }, [data, filters]);
 
     // Helper to check if a row fails the audit
-    // Helper to check if a row fails the audit
     const checkAuditFail = (row, currentFilters) => {
         try {
             if (!currentFilters.auditEnabled || !currentFilters.auditCriteria) return false;
@@ -67,7 +66,6 @@ export default function Dashboard({ data, filters }) {
             const mode = currentFilters.auditMode || 'OR';
             return mode === 'AND' ? results.every(r => r) : results.some(r => r);
         } catch (err) {
-            console.error("Audit Check Error:", err);
             return false;
         }
     };
