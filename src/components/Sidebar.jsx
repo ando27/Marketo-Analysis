@@ -216,21 +216,13 @@ export default function Sidebar({ data, filters, setFilters, volumeCutoffs, setV
                                     ))}
                                 </div>
 
-                                <div className="flex items-center justify-between border-t border-white/10 pt-3">
-                                    <label className="text-xs text-gray-300">Isolate Failures</label>
-                                    <input
-                                        type="checkbox"
-                                        checked={filters.isolateAudit || false}
-                                        onChange={(e) => setFilters(prev => ({ ...prev, isolateAudit: e.target.checked }))}
-                                        className="accent-red-500 w-3 h-3"
-                                    />
-                                </div>
-                            </>
-                        )}
-                    </div>
+                            </div>
+                    </>
                 )}
             </div>
-            {/* Comparison Tool */}
+                )}
+        </div>
+            {/* Comparison Tool */ }
             <div className="space-y-3">
                 <button
                     onClick={() => toggleSection('comparison')}
@@ -299,6 +291,6 @@ export default function Sidebar({ data, filters, setFilters, volumeCutoffs, setV
                 v{import.meta.env.PACKAGE_VERSION}
             </div>
 
-        </div>
+        </div >
     );
 }

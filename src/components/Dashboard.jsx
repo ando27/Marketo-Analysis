@@ -25,8 +25,8 @@ export default function Dashboard({ data, filters }) {
             }
         });
 
-        // Audit Filter (Isolation)
-        if (filters.auditEnabled && filters.isolateAudit && filters.auditCriteria) {
+        // Audit Filter (Auto-Isolate if criteria exists)
+        if (filters.auditEnabled && filters.auditCriteria && Object.keys(filters.auditCriteria).length > 0) {
             res = res.filter(row => checkAuditFail(row, filters));
         }
 
