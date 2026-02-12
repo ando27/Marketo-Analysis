@@ -295,6 +295,10 @@ export default function Sidebar({ data, filters, setFilters, volumeCutoffs, setV
                 )}
             </div>
 
+            <div className="pt-6 mt-auto border-t border-white/10 text-xs text-center text-gray-500 font-mono">
+                v{import.meta.env.PACKAGE_VERSION}
+            </div>
+
         </div>
     );
 }
