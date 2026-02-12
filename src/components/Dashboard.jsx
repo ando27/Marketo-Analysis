@@ -34,30 +34,42 @@ export default function Dashboard({ data, filters }) {
     }, [data, filters]);
 
     // Helper to check if a row fails the audit
+    // Helper to check if a row fails the audit
     const checkAuditFail = (row, currentFilters) => {
-        if (!currentFilters.auditEnabled || !currentFilters.auditCriteria) return false;
+        try {
+            if (!currentFilters.auditEnabled || !currentFilters.auditCriteria) return false;
 
-        const criteria = currentFilters.auditCriteria || {};
-        const results = [];
+            const criteria = currentFilters.auditCriteria || {};
+            const results = [];
 
-        Object.keys(criteria).forEach(col => {
-            if (!criteria[col]) return;
-            const { op, val } = criteria[col];
-            const rowVal = row[col];
-            let fail = false;
+            Object.keys(criteria).forEach(col => {
+                if (!criteria[col]) return;
+                const { op, val } = criteria[col];
+                const rowVal = row[col];
+                let fail = false;
 
-            if (op === '<') fail = rowVal < val;
-            else if (op === '<=') fail = rowVal <= val;
-            else if (op === '>') fail = rowVal > val;
-            else if (op === '>=') fail = rowVal >= val;
+                // Ensure numeric comparison
+                const numRowVal = parseFloat(rowVal);
+                const numVal = parseFloat(val);
 
-            results.push(fail);
-        });
+                if (isNaN(numRowVal) || isNaN(numVal)) return; // Skip invalid numbers
 
-        if (results.length === 0) return false;
+                if (op === '<') fail = numRowVal < numVal;
+                else if (op === '<=') fail = numRowVal <= numVal;
+                else if (op === '>') fail = numRowVal > numVal;
+                else if (op === '>=') fail = numRowVal >= numVal;
 
-        const mode = currentFilters.auditMode || 'OR';
-        return mode === 'AND' ? results.every(r => r) : results.some(r => r);
+                results.push(fail);
+            });
+
+            if (results.length === 0) return false;
+
+            const mode = currentFilters.auditMode || 'OR';
+            return mode === 'AND' ? results.every(r => r) : results.some(r => r);
+        } catch (err) {
+            console.error("Audit Check Error:", err);
+            return false;
+        }
     };
 
     // Calculate Summary Metrics
