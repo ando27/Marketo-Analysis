@@ -216,13 +216,12 @@ export default function Sidebar({ data, filters, setFilters, volumeCutoffs, setV
                                     ))}
                                 </div>
 
-                            </div>
-                    </>
+                            </>
+                        )}
+                    </div>
                 )}
             </div>
-                )}
-        </div>
-            {/* Comparison Tool */ }
+            {/* Comparison Tool */}
             <div className="space-y-3">
                 <button
                     onClick={() => toggleSection('comparison')}
