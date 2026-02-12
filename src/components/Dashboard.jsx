@@ -37,10 +37,11 @@ export default function Dashboard({ data, filters }) {
     const checkAuditFail = (row, currentFilters) => {
         if (!currentFilters.auditEnabled || !currentFilters.auditCriteria) return false;
 
-        const criteria = currentFilters.auditCriteria;
+        const criteria = currentFilters.auditCriteria || {};
         const results = [];
 
         Object.keys(criteria).forEach(col => {
+            if (!criteria[col]) return;
             const { op, val } = criteria[col];
             const rowVal = row[col];
             let fail = false;

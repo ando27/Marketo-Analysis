@@ -84,9 +84,9 @@ export default function Sidebar({ data, filters, setFilters, volumeCutoffs, setV
                                                 onChange={(e) => updateFilter(col, 'equals', e.target.value)}
                                                 value={filters[col]?.equals || ""}
                                             >
-                                                <option value="">All</option>
+                                                <option value="" className="text-black">All</option>
                                                 {_.uniq(data.map(d => d[col])).sort().map(g => (
-                                                    <option key={g} value={g}>{g}</option>
+                                                    <option key={g} value={g} className="text-black">{g}</option>
                                                 ))}
                                             </select>
                                         ) : isNum ? (
@@ -188,11 +188,11 @@ export default function Sidebar({ data, filters, setFilters, volumeCutoffs, setV
                                                     }}
                                                     value={filters.auditCriteria?.[col]?.op || ""}
                                                 >
-                                                    <option value="">Select...</option>
-                                                    <option value="<">Less Than</option>
-                                                    <option value="<=">Less Than =</option>
-                                                    <option value=">">Greater Than</option>
-                                                    <option value=">=">Greater Than =</option>
+                                                    <option value="" className="text-black">Select...</option>
+                                                    <option value="<" className="text-black">Less Than</option>
+                                                    <option value="<=" className="text-black">Less Than =</option>
+                                                    <option value=">" className="text-black">Greater Than</option>
+                                                    <option value=">=" className="text-black">Greater Than =</option>
                                                 </select>
                                             </div>
                                             {filters.auditCriteria?.[col] && (
@@ -263,7 +263,7 @@ export default function Sidebar({ data, filters, setFilters, volumeCutoffs, setV
                                         value={filters.compareCol || "Volume Group"}
                                     >
                                         {columns.map(c => (
-                                            <option key={c} value={c}>{c}</option>
+                                            <option key={c} value={c} className="text-black">{c}</option>
                                         ))}
                                     </select>
                                 </div>
