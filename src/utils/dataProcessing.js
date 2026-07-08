@@ -3,7 +3,35 @@ import * as XLSX from 'xlsx';
 import _ from 'lodash';
 
 // Target columns for specific percentage formatting
-export const PCT_COLS = ["% Delivered", "% Opened", "% Clicked Email", "Clicked to Open Ratio"];
+export const PCT_COLS = ["% Delivered", "% Opened", "% Clicked Email", "Clicked to Open Ratio", "Open Percentage", "Click Percentage"];
+
+// Marketo activity columns that should be dropped entirely during processing
+const DELETE_EXACT = new Set([
+    'load date',
+    'primary attribute value id',
+    'call_webhook',
+    'change_status_in_progression',
+    'fill_out_form',
+    'merge_leads',
+    'new_lead',
+    // Source percentages are discarded - we recalculate these ourselves below
+    'open percentage',
+    'click percentage',
+]);
+
+// Exact (case-insensitive) header renames for known Marketo activity columns
+const RENAME_EXACT = {
+    'primary attribute value': 'Email Name',
+    'click_email': 'Email Clicks',
+    'click_link': 'Link Clicks',
+    'email_bounced': 'Email Bounced',
+    'email_bounced_soft': 'Email Bounced Soft',
+    'email_delivered': 'Emails Delivered',
+    'open_email': 'Email Opens',
+    'send_email': 'Email Sends',
+    'unsubscribe_email': 'Email Unsubscribes',
+    'visit_webpage': 'Page Visits',
+};
 
 /**
  * Helper to find a column name in a dataframe based on keywords.
@@ -40,23 +68,32 @@ export const processData = (rawData) => {
     // Since we have an array of objects, we need to map over them and create new objects with new keys
     const originalKeys = Object.keys(df[0]);
     const keyMap = {};
+    const deleteKeys = new Set();
 
     originalKeys.forEach(col => {
-        let newName = col;
-        const colLower = col.toLowerCase();
+        const colLower = col.trim().toLowerCase();
 
-        if (['click to open', 'ctor', 'clicked to open'].some(x => colLower.includes(x))) {
-            newName = "Clicked to Open Ratio";
-        } else if (colLower.includes("% del")) {
-            newName = "% Delivered";
-        } else if (colLower.includes("% open")) {
-            newName = "% Opened";
-        } else if (colLower.includes("% click")) {
-            newName = "% Clicked Email";
-        } else {
-            // Remove content in parentheses and specific words
-            newName = col.replace(/\s*\([^)]*\)/g, '');
-            newName = newName.replace(/\b(Email|Campaign)\b/gi, '').trim();
+        if (DELETE_EXACT.has(colLower)) {
+            deleteKeys.add(col);
+            return;
+        }
+
+        let newName = RENAME_EXACT[colLower];
+
+        if (!newName) {
+            if (['click to open', 'ctor', 'clicked to open'].some(x => colLower.includes(x))) {
+                newName = "Clicked to Open Ratio";
+            } else if (colLower.includes("% del")) {
+                newName = "% Delivered";
+            } else if (colLower.includes("% open")) {
+                newName = "% Opened";
+            } else if (colLower.includes("% click")) {
+                newName = "% Clicked Email";
+            } else {
+                // Remove content in parentheses and specific words
+                newName = col.replace(/\s*\([^)]*\)/g, '');
+                newName = newName.replace(/\b(Email|Campaign)\b/gi, '').trim();
+            }
         }
         keyMap[col] = newName;
     });
@@ -65,6 +102,8 @@ export const processData = (rawData) => {
     const processed = df.map(row => {
         const newRow = {};
         Object.keys(row).forEach(oldKey => {
+            if (deleteKeys.has(oldKey)) return;
+
             const newKey = keyMap[oldKey];
             let val = row[oldKey];
 
@@ -78,7 +117,7 @@ export const processData = (rawData) => {
                     val = val / 100.0;
                 }
             } else {
-                const volKeys = ['sent', 'delivered', 'opened', 'clicked', 'clicks', 'bounced'];
+                const volKeys = ['sent', 'sends', 'delivered', 'opened', 'opens', 'clicked', 'clicks', 'bounced', 'unsubscri', 'visit'];
                 const isVol = volKeys.some(k => newKey.toLowerCase().includes(k)) && !PCT_COLS.includes(newKey);
 
                 if (isVol) {
@@ -94,6 +133,15 @@ export const processData = (rawData) => {
             }
             newRow[newKey] = val;
         });
+
+        // Calculate Open/Click percentages ourselves rather than trusting the source file
+        const opens = Number(newRow["Email Opens"]) || 0;
+        const clicks = Number(newRow["Email Clicks"]) || 0;
+        const delivered = Number(newRow["Emails Delivered"]) || 0;
+
+        newRow["Open Percentage"] = delivered > 0 ? opens / delivered : 0;
+        newRow["Click Percentage"] = delivered > 0 ? clicks / delivered : 0;
+
         return newRow;
     });
 

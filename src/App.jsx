@@ -54,7 +54,7 @@ function App() {
     }, [processedData]);
 
     return (
-        <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground">
+        <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground">
             {/* Header */}
             <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="container flex h-14 max-w-screen-2xl items-center px-4 justify-between">
@@ -115,8 +115,8 @@ function App() {
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8">
-                        <aside className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8 min-w-0">
+                        <aside className="space-y-6 min-w-0">
                             <Sidebar
                                 data={currentData}
                                 filters={filters}
@@ -125,7 +125,7 @@ function App() {
                                 setVolumeCutoffs={setVolumeCutoffs}
                             />
                         </aside>
-                        <section className="space-y-6">
+                        <section className="space-y-6 min-w-0">
                             <Dashboard data={currentData} filters={filters} />
                         </section>
                     </div>

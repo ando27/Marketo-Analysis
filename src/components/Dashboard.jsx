@@ -75,9 +75,9 @@ export default function Dashboard({ data, filters }) {
         if (filteredData.length === 0) return [];
 
         // Auto-detect key volume and rate columns
-        const sentCol = findCol(filteredData, ['sent']);
+        const sentCol = findCol(filteredData, ['sent', 'sends']);
         const delCol = findCol(filteredData, ['delivered']);
-        const openCol = findCol(filteredData, ['opened']);
+        const openCol = findCol(filteredData, ['opened', 'opens']);
         const clickCol = findCol(filteredData, ['clicked', 'clicks']);
 
         const totalSent = sentCol ? _.sumBy(filteredData, sentCol) : 0;
@@ -107,9 +107,9 @@ export default function Dashboard({ data, filters }) {
         const segB = filteredData.filter(d => String(d[col]).toLowerCase().includes(filters.segmentB.toLowerCase()));
 
         const calcMetrics = (subset) => {
-            const sentCol = findCol(subset, ['sent']);
+            const sentCol = findCol(subset, ['sent', 'sends']);
             const devCol = findCol(subset, ['delivered']);
-            const openCol = findCol(subset, ['opened']);
+            const openCol = findCol(subset, ['opened', 'opens']);
             const clickCol = findCol(subset, ['clicked email', 'clicks']);
 
             const sent = sentCol ? _.sumBy(subset, sentCol) : 0;
