@@ -1,19 +1,30 @@
-import React, { useState, useMemo } from 'react';
-import { Upload, FileUp, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Upload, AlertCircle, RefreshCw } from 'lucide-react';
 import { processData, parseFile, addVolumeTiers } from './utils/dataProcessing';
+import { buildColumnMeta } from './utils/columns';
+import { parseCutoffs } from './utils/filters';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 
+const DEFAULT_CUTOFFS = [5000, 10000];
+const DEFAULT_AUDIT = { enabled: false, mode: 'OR', criteria: {} };
+const DEFAULT_COMPARISON = { enabled: false, col: 'Volume Group', segmentA: '', segmentB: '' };
+
 function App() {
-    const [file, setFile] = useState(null);
-    const [rawData, setRawData] = useState(null);
+    // Cleaned data WITHOUT volume tiers; tiers are added below so they can be re-run
     const [processedData, setProcessedData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [resetCount, setResetCount] = useState(0);
 
-    // Filter State
-    const [filters, setFilters] = useState({});
-    const [volumeCutoffs, setVolumeCutoffs] = useState("5000, 10000");
+    // Column filters, audit and comparison are kept apart so settings are never mistaken for columns
+    const [columnFilters, setColumnFilters] = useState({});
+    const [auditSettings, setAuditSettings] = useState(DEFAULT_AUDIT);
+    const [comparisonSettings, setComparisonSettings] = useState(DEFAULT_COMPARISON);
+
+    // Volume tiers: what's typed in the box vs. the last valid cutoffs actually in use
+    const [cutoffsText, setCutoffsText] = useState(DEFAULT_CUTOFFS.join(', '));
+    const [appliedCutoffs, setAppliedCutoffs] = useState(DEFAULT_CUTOFFS);
+
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     const handleFileUpload = async (e) => {
         const uploadedFile = e.target.files[0];
@@ -21,13 +32,13 @@ function App() {
 
         setLoading(true);
         try {
-            const raw = await parseFile(uploadedFile); // Keep raw for resets
+            const raw = await parseFile(uploadedFile);
             const processed = processData(raw);
-            const withTiers = addVolumeTiers(processed); // Default tiers
-
-            setFile(uploadedFile);
-            setRawData(raw);
-            setProcessedData(withTiers);
+            if (processed.length === 0) {
+                alert("No data rows were found in that file.");
+                return;
+            }
+            setProcessedData(processed);
         } catch (error) {
             console.error("Error parsing file:", error);
             alert("Error parsing file. Please check the format.");
@@ -37,27 +48,45 @@ function App() {
     };
 
     const handleReset = () => {
-        setFile(null);
-        setRawData(null);
         setProcessedData(null);
-        setFilters({});
-        setResetCount(prev => prev + 1);
+        setColumnFilters({});
+        setAuditSettings(DEFAULT_AUDIT);
+        setComparisonSettings(DEFAULT_COMPARISON);
+        setCutoffsText(DEFAULT_CUTOFFS.join(', '));
+        setAppliedCutoffs(DEFAULT_CUTOFFS);
     };
 
-    // Re-calculate tiers if cutoffs change
+    const handleCutoffsChange = (text) => {
+        setCutoffsText(text);
+        const parsed = parseCutoffs(text);
+        // Invalid input is ignored: the last valid cutoffs stay in use
+        if (!parsed || parsed.join() === appliedCutoffs.join()) return;
+
+        setAppliedCutoffs(parsed);
+        // The tier names just changed, so a Volume Group filter picked earlier no longer matches anything
+        setColumnFilters(prev => {
+            if (!prev['Volume Group']) return prev;
+            return { ...prev, 'Volume Group': { ...prev['Volume Group'], value: '' } };
+        });
+    };
+
+    // Re-run volume tiers whenever the data or the cutoffs change
     const currentData = useMemo(() => {
         if (!processedData) return null;
-        // Note: In a real app we might want to preserve the raw 'processed' and only re-run tiering
-        // For now, let's assume processedData already has default tiers. 
-        // We can re-run tiering here if needed or just use what we have.
-        return processedData;
-    }, [processedData]);
+        return addVolumeTiers(processedData, appliedCutoffs);
+    }, [processedData, appliedCutoffs]);
+
+    // Column list, types and unique values: computed once per dataset, not on every render
+    const columns = useMemo(() => (currentData && currentData.length > 0 ? Object.keys(currentData[0]) : []), [currentData]);
+    const columnMeta = useMemo(() => buildColumnMeta(currentData), [currentData]);
+
+    const hasData = currentData && currentData.length > 0;
 
     return (
-        <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground">
+        <div className="min-h-screen w-full max-w-[100vw] overflow-x-clip bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground">
             {/* Header */}
             <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="container flex h-14 max-w-screen-2xl items-center px-4 justify-between">
+                <div className="flex h-14 w-full max-w-screen-2xl mx-auto items-center px-4 lg:px-6 2xl:px-8 justify-between">
                     <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
                         <span className="text-blue-500">⚡</span> Marketo Auditor
                     </div>
@@ -72,8 +101,8 @@ function App() {
                 </div>
             </header>
 
-            <main className="container max-w-screen-2xl mx-auto p-8">
-                {!processedData ? (
+            <main className="w-full max-w-screen-2xl mx-auto p-4 lg:p-6 2xl:p-8">
+                {!hasData ? (
                     <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 animate-in fade-in zoom-in duration-500">
                         <div className="text-center space-y-2">
                             <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl bg-gradient-to-r from-blue-400 to-indigo-600 bg-clip-text text-transparent">
@@ -115,18 +144,36 @@ function App() {
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8 min-w-0">
-                        <aside className="space-y-6 min-w-0">
+                    <div className={`grid grid-cols-1 gap-4 lg:gap-6 min-w-0 ${sidebarCollapsed ? 'md:grid-cols-[3.5rem_minmax(0,1fr)]' : 'md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]'}`}>
+                        <aside className="min-w-0">
                             <Sidebar
-                                data={currentData}
-                                filters={filters}
-                                setFilters={setFilters}
-                                volumeCutoffs={volumeCutoffs}
-                                setVolumeCutoffs={setVolumeCutoffs}
+                                columns={columns}
+                                columnMeta={columnMeta}
+                                columnFilters={columnFilters}
+                                setColumnFilters={setColumnFilters}
+                                auditSettings={auditSettings}
+                                setAuditSettings={setAuditSettings}
+                                comparisonSettings={comparisonSettings}
+                                setComparisonSettings={setComparisonSettings}
+                                cutoffsText={cutoffsText}
+                                onCutoffsChange={handleCutoffsChange}
+                                cutoffsValid={parseCutoffs(cutoffsText) !== null}
+                                appliedCutoffs={appliedCutoffs}
+                                collapsed={sidebarCollapsed}
+                                onToggleCollapsed={() => setSidebarCollapsed(c => !c)}
                             />
                         </aside>
-                        <section className="space-y-6 min-w-0">
-                            <Dashboard data={currentData} filters={filters} />
+                        <section className="min-w-0">
+                            <Dashboard
+                                data={currentData}
+                                columns={columns}
+                                columnMeta={columnMeta}
+                                columnFilters={columnFilters}
+                                setColumnFilters={setColumnFilters}
+                                auditSettings={auditSettings}
+                                setAuditSettings={setAuditSettings}
+                                comparisonSettings={comparisonSettings}
+                            />
                         </section>
                     </div>
                 )}

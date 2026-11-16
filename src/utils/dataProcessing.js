@@ -1,6 +1,5 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import _ from 'lodash';
 
 // Target columns for specific percentage formatting
 export const PCT_COLS = ["% Delivered", "% Opened", "% Clicked Email", "Clicked to Open Ratio", "Open Percentage", "Click Percentage"];
@@ -98,6 +97,19 @@ export const processData = (rawData) => {
         keyMap[col] = newName;
     });
 
+    // Work out which count columns feed the Open/Click percentages.
+    // The Marketo activity names are preferred; otherwise fall back to a keyword
+    // match (e.g. "Opened", "Clicked", "Delivered"), ignoring percentage columns.
+    const countCols = Object.values(keyMap).filter(name => !PCT_COLS.includes(name));
+    const pickCol = (exact, keywords) =>
+        countCols.includes(exact)
+            ? exact
+            : countCols.find(name => keywords.some(k => name.toLowerCase().includes(k))) || null;
+
+    const opensCol = pickCol('Email Opens', ['opened', 'opens']);
+    const clicksCol = pickCol('Email Clicks', ['clicked', 'clicks']);
+    const deliveredCol = pickCol('Emails Delivered', ['delivered']);
+
     // Apply new keys and numeric casting
     const processed = df.map(row => {
         const newRow = {};
@@ -135,12 +147,15 @@ export const processData = (rawData) => {
         });
 
         // Calculate Open/Click percentages ourselves rather than trusting the source file
-        const opens = Number(newRow["Email Opens"]) || 0;
-        const clicks = Number(newRow["Email Clicks"]) || 0;
-        const delivered = Number(newRow["Emails Delivered"]) || 0;
+        // If a needed column is missing the value is left blank rather than shown as 0%
+        const delivered = deliveredCol ? Number(newRow[deliveredCol]) || 0 : null;
+        const pctOfDelivered = (col) => {
+            if (!col || delivered === null) return null;
+            return delivered > 0 ? (Number(newRow[col]) || 0) / delivered : 0;
+        };
 
-        newRow["Open Percentage"] = delivered > 0 ? opens / delivered : 0;
-        newRow["Click Percentage"] = delivered > 0 ? clicks / delivered : 0;
+        newRow["Open Percentage"] = pctOfDelivered(opensCol);
+        newRow["Click Percentage"] = pctOfDelivered(clicksCol);
 
         return newRow;
     });

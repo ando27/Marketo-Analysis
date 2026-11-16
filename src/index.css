@@ -45,3 +45,20 @@
 .glass-card {
   @apply glass rounded-xl p-6 transition-all duration-300 hover:bg-white/10;
 }
+
+/* Slim dark scrollbars for scrollable panels (sidebar, table, menus) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.2);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
