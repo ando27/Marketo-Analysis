@@ -11,6 +11,10 @@ module.exports = {
     parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
     settings: { react: { version: '18.2' } },
     plugins: ['react-refresh'],
+    overrides: [
+        // Build config files run in Node, not the browser
+        { files: ['*.config.js'], env: { node: true } },
+    ],
     rules: {
         'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
         // This project doesn't use PropTypes
