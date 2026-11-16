@@ -1,6 +1,5 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import _ from 'lodash';
 
 // Target columns for specific percentage formatting
 export const PCT_COLS = ["% Delivered", "% Opened", "% Clicked Email", "Clicked to Open Ratio", "Open Percentage", "Click Percentage"];
