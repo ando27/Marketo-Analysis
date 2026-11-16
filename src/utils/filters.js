@@ -79,28 +79,49 @@ export const describeFilter = (col, filter) => {
 
 export const countAuditRules = (audit) => Object.keys(audit?.criteria || {}).length;
 
+export const AUDIT_OPS = ['<', '<=', '>', '>='];
+
 /**
- * True when a row breaks the audit rules (i.e. should be flagged).
+ * Checks every audit rule against a row.
+ * Returns [{ label: "% Opened < 0.2", failed: true }, ...] for the rules that could be checked.
  */
-export const rowFailsAudit = (row, audit) => {
-    if (!audit?.enabled) return false;
+const evaluateAuditRules = (row, audit) => {
     const results = [];
 
-    Object.entries(audit.criteria || {}).forEach(([col, rule]) => {
+    Object.entries(audit?.criteria || {}).forEach(([col, rule]) => {
         if (!rule) return;
         const rowVal = parseFloat(row[col]);
         const threshold = parseFloat(rule.val);
         if (isNaN(rowVal) || isNaN(threshold)) return;
 
-        if (rule.op === '<') results.push(rowVal < threshold);
-        else if (rule.op === '<=') results.push(rowVal <= threshold);
-        else if (rule.op === '>') results.push(rowVal > threshold);
-        else if (rule.op === '>=') results.push(rowVal >= threshold);
+        let failed;
+        if (rule.op === '<') failed = rowVal < threshold;
+        else if (rule.op === '<=') failed = rowVal <= threshold;
+        else if (rule.op === '>') failed = rowVal > threshold;
+        else if (rule.op === '>=') failed = rowVal >= threshold;
+        else return;
+
+        results.push({ label: `${col} ${rule.op} ${threshold}`, failed });
     });
 
-    if (results.length === 0) return false;
-    return audit.mode === 'AND' ? results.every(Boolean) : results.some(Boolean);
+    return results;
 };
+
+/**
+ * True when a row breaks the audit rules (i.e. should be flagged).
+ */
+export const rowFailsAudit = (row, audit) => {
+    if (!audit?.enabled) return false;
+    const results = evaluateAuditRules(row, audit);
+    if (results.length === 0) return false;
+    return audit.mode === 'AND' ? results.every(r => r.failed) : results.some(r => r.failed);
+};
+
+/**
+ * The individual rules a row failed, e.g. ["% Opened < 0.2", "Clicked <= 5"].
+ */
+export const getFailedRules = (row, audit) =>
+    evaluateAuditRules(row, audit).filter(r => r.failed).map(r => r.label);
 
 /**
  * Parses "5000, 10000" into [5000, 10000]. Returns null when the text is not

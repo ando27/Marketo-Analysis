@@ -130,7 +130,9 @@ export const processData = (rawData) => {
                 }
             } else {
                 const volKeys = ['sent', 'sends', 'delivered', 'opened', 'opens', 'clicked', 'clicks', 'bounced', 'unsubscri', 'visit'];
-                const isVol = volKeys.some(k => newKey.toLowerCase().includes(k)) && !PCT_COLS.includes(newKey);
+                // Date columns such as "Sent Date" contain a volume keyword but are not counts
+                const isDateCol = newKey.toLowerCase().includes('date');
+                const isVol = !isDateCol && volKeys.some(k => newKey.toLowerCase().includes(k)) && !PCT_COLS.includes(newKey);
 
                 if (isVol) {
                     if (typeof val === 'string') {
@@ -200,7 +202,7 @@ export const addVolumeTiers = (data, cutoffs = [5000, 10000]) => {
  */
 export const parseFile = async (file) => {
     return new Promise((resolve, reject) => {
-        const isCsv = file.name.endsWith('.csv');
+        const isCsv = file.name.toLowerCase().endsWith('.csv');
 
         if (isCsv) {
             Papa.parse(file, {
@@ -227,6 +229,7 @@ export const parseFile = async (file) => {
                     reject(err);
                 }
             };
+            reader.onerror = () => reject(reader.error || new Error('Could not read file'));
             reader.readAsArrayBuffer(file);
         }
     });

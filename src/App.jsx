@@ -1,10 +1,13 @@
-import { useState, useMemo } from 'react';
-import { Upload, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { Upload, AlertCircle, RefreshCw, XCircle } from 'lucide-react';
 import { processData, parseFile, addVolumeTiers } from './utils/dataProcessing';
 import { buildColumnMeta } from './utils/columns';
 import { parseCutoffs } from './utils/filters';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
+
+const ACCEPTED_EXTENSIONS = ['.csv', '.xlsx', '.xls'];
+const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
 
 const DEFAULT_CUTOFFS = [5000, 10000];
 const DEFAULT_AUDIT = { enabled: false, mode: 'OR', criteria: {} };
@@ -14,6 +17,12 @@ function App() {
     // Cleaned data WITHOUT volume tiers; tiers are added below so they can be re-run
     const [processedData, setProcessedData] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [fileName, setFileName] = useState('');
+    const [uploadError, setUploadError] = useState('');
+
+    // Drag-and-drop: the counter stops the highlight flickering as the pointer crosses child elements
+    const [dragActive, setDragActive] = useState(false);
+    const dragDepth = useRef(0);
 
     // Column filters, audit and comparison are kept apart so settings are never mistaken for columns
     const [columnFilters, setColumnFilters] = useState({});
@@ -26,29 +35,90 @@ function App() {
 
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-    const handleFileUpload = async (e) => {
-        const uploadedFile = e.target.files[0];
-        if (!uploadedFile) return;
+    // Files are read in the browser only. Nothing is uploaded or stored.
+    const loadFile = async (file) => {
+        if (!file || loading) return;
+
+        const lowerName = file.name.toLowerCase();
+        if (!ACCEPTED_EXTENSIONS.some(ext => lowerName.endsWith(ext))) {
+            setUploadError(`"${file.name}" isn't a supported file type. Please use a .csv, .xlsx or .xls file.`);
+            return;
+        }
 
         setLoading(true);
+        setUploadError('');
         try {
-            const raw = await parseFile(uploadedFile);
+            const raw = await parseFile(file);
             const processed = processData(raw);
             if (processed.length === 0) {
-                alert("No data rows were found in that file.");
+                setUploadError(`No data rows were found in "${file.name}".`);
                 return;
             }
+            setFileName(file.name);
             setProcessedData(processed);
         } catch (error) {
             console.error("Error parsing file:", error);
-            alert("Error parsing file. Please check the format.");
+            setUploadError(`"${file.name}" couldn't be read. Please check that it's a valid CSV or Excel file.`);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        e.target.value = ''; // so the same file can be picked again after an error
+        loadFile(file);
+    };
+
+    const handleDragEnter = (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        dragDepth.current += 1;
+        setDragActive(true);
+    };
+
+    const handleDragOver = (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDragLeave = (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragActive(false);
+    };
+
+    const handleDrop = (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        dragDepth.current = 0;
+        setDragActive(false);
+
+        const files = e.dataTransfer.files;
+        if (files.length > 1) {
+            setUploadError('Please drop one file at a time.');
+            return;
+        }
+        loadFile(files[0]);
+    };
+
+    // A file dropped outside the upload box would otherwise make the browser open it and leave the app
+    useEffect(() => {
+        const block = (e) => { if (hasFiles(e)) e.preventDefault(); };
+        window.addEventListener('dragover', block);
+        window.addEventListener('drop', block);
+        return () => {
+            window.removeEventListener('dragover', block);
+            window.removeEventListener('drop', block);
+        };
+    }, []);
+
     const handleReset = () => {
         setProcessedData(null);
+        setFileName('');
+        setUploadError('');
         setColumnFilters({});
         setAuditSettings(DEFAULT_AUDIT);
         setComparisonSettings(DEFAULT_COMPARISON);
@@ -116,7 +186,11 @@ function App() {
                         <div className="w-full max-w-md">
                             <label
                                 htmlFor="file-upload"
-                                className={`relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-white/20 rounded-2xl cursor-pointer bg-white/5 hover:bg-white/10 hover:border-blue-500/50 transition-all duration-300 group overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}
+                                onDragEnter={handleDragEnter}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                className={`relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-300 group overflow-hidden ${dragActive ? 'border-blue-400 bg-blue-500/15 scale-[1.02]' : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-blue-500/50'} ${loading ? 'opacity-50 pointer-events-none' : ''}`}
                             >
                                 <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -130,12 +204,19 @@ function App() {
                                         </div>
                                     )}
                                     <p className="mb-2 text-sm text-gray-400">
-                                        <span className="font-semibold text-white">{loading ? "Processing..." : "Click to upload"}</span> {loading ? "" : "or drag and drop"}
+                                        <span className="font-semibold text-white">{loading ? "Processing..." : dragActive ? "Drop the file to load it" : "Click to upload"}</span> {loading || dragActive ? "" : "or drag and drop"}
                                     </p>
-                                    <p className="text-xs text-gray-500">CSV or Excel files</p>
+                                    <p className="text-xs text-gray-500">CSV or Excel files (.csv, .xlsx, .xls)</p>
                                 </div>
                                 <input id="file-upload" type="file" className="hidden" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} disabled={loading} />
                             </label>
+
+                            {uploadError && (
+                                <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                                    <XCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-400" />
+                                    <span className="min-w-0 break-words">{uploadError}</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2 text-sm text-yellow-500/80 bg-yellow-500/10 px-4 py-2 rounded-full">
@@ -173,6 +254,7 @@ function App() {
                                 auditSettings={auditSettings}
                                 setAuditSettings={setAuditSettings}
                                 comparisonSettings={comparisonSettings}
+                                fileName={fileName}
                             />
                         </section>
                     </div>

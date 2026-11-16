@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { ArrowUp, ArrowDown, ArrowUpDown, Columns3, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatCell, getDefaultVisibleColumns, toTime } from '../utils/columns';
 import useClickOutside from '../hooks/useClickOutside';
+import ExportMenu from './ExportMenu';
 
 const PAGE_SIZES = [25, 50, 100];
 
@@ -18,7 +19,7 @@ const sortValue = (val, type) => {
     return String(val);
 };
 
-export default function DataTable({ rows, columns, columnMeta, isRowFlagged }) {
+export default function DataTable({ rows, columns, columnMeta, isRowFlagged, auditSettings, totals }) {
     const [visible, setVisible] = useState(() => new Set(getDefaultVisibleColumns(columns)));
     const [menuOpen, setMenuOpen] = useState(false);
     const [sort, setSort] = useState({ col: null, dir: null });
@@ -79,6 +80,16 @@ export default function DataTable({ rows, columns, columnMeta, isRowFlagged }) {
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
                 <h3 className="font-semibold text-lg">Campaign Data</h3>
 
+                <div className="flex items-center gap-2">
+                <ExportMenu
+                    rows={sortedRows}
+                    allColumns={columns}
+                    visibleColumns={shownColumns}
+                    columnMeta={columnMeta}
+                    auditSettings={auditSettings}
+                    totals={totals}
+                    buttonClass={smallBtn}
+                />
                 <div className="relative" ref={menuRef}>
                     <button
                         type="button"
@@ -115,6 +126,7 @@ export default function DataTable({ rows, columns, columnMeta, isRowFlagged }) {
                             </div>
                         </div>
                     )}
+                </div>
                 </div>
             </div>
 

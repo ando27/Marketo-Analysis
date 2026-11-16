@@ -4,6 +4,7 @@ import {
     Search, Plus, X, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { isFilterActive, countAuditRules } from '../utils/filters';
+import AuditPresets from './AuditPresets';
 
 const inputClass = 'w-full min-w-0 bg-white/5 border border-white/10 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500';
 
@@ -289,6 +290,12 @@ export default function Sidebar({
                                 className="accent-blue-500 w-4 h-4"
                             />
                         </div>
+
+                        <AuditPresets
+                            auditSettings={auditSettings}
+                            setAuditSettings={setAuditSettings}
+                            numericColumns={numericColumns}
+                        />
 
                         {auditSettings.enabled && (
                             <>
