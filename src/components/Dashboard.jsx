@@ -1,9 +1,12 @@
-import { useMemo, useCallback } from 'react';
-import { Layers } from 'lucide-react';
+import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { Layers, Table2, TrendingUp, FileSpreadsheet } from 'lucide-react';
 import { applyColumnFilters, rowFailsAudit, countAuditRules } from '../utils/filters';
 import { detectMetricColumns, computeTotals, formatCount, formatRate } from '../utils/metrics';
 import FilterChips from './FilterChips';
 import DataTable from './DataTable';
+
+// The chart library is only downloaded when the Trends tab is first opened
+const TrendView = lazy(() => import('./TrendView'));
 
 const deltaClass = (delta) => (delta === null ? 'text-gray-400' : delta >= 0 ? 'text-green-400' : 'text-red-400');
 const formatDelta = (a, b) => (a === null || b === null ? null : b - a);
@@ -12,8 +15,9 @@ export default function Dashboard({
     data, columns, columnMeta,
     columnFilters, setColumnFilters,
     auditSettings, setAuditSettings,
-    comparisonSettings,
+    comparisonSettings, fileName,
 }) {
+    const [view, setView] = useState('table');
     const auditActive = auditSettings.enabled && countAuditRules(auditSettings) > 0;
 
     // Column filters first, then (if the audit has rules) keep only the rows that fail it
@@ -25,8 +29,10 @@ export default function Dashboard({
 
     const metricCols = useMemo(() => detectMetricColumns(data), [data]);
 
+    const totals = useMemo(() => computeTotals(filteredData, metricCols), [filteredData, metricCols]);
+
     const metrics = useMemo(() => {
-        const t = computeTotals(filteredData, metricCols);
+        const t = totals;
         return [
             { label: 'Total Sent', value: formatCount(t.sent) },
             { label: 'Total Delivered', value: formatCount(t.delivered) },
@@ -36,7 +42,7 @@ export default function Dashboard({
             { label: 'Weighted Click Rate', value: formatRate(t.clickRate), hint: 'clicked ÷ delivered' },
             { label: 'Click-to-Open Rate', value: formatRate(t.ctor), hint: 'clicked ÷ opened' },
         ];
-    }, [filteredData, metricCols]);
+    }, [totals]);
 
     const comparisonResult = useMemo(() => {
         const { enabled, col, segmentA, segmentB } = comparisonSettings;
@@ -58,6 +64,31 @@ export default function Dashboard({
 
     return (
         <div className="space-y-4 lg:space-y-6 min-w-0">
+
+            {/* Tabs + loaded file */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div role="tablist" aria-label="Dashboard view" className="flex bg-white/5 border border-white/10 rounded-lg p-1 text-sm">
+                    {[['table', 'Table', Table2], ['trends', 'Trends', TrendingUp]].map(([id, label, Icon]) => (
+                        <button
+                            key={id}
+                            type="button"
+                            role="tab"
+                            aria-selected={view === id}
+                            onClick={() => setView(id)}
+                            className={`flex items-center gap-2 px-4 py-1.5 rounded-md transition-colors ${view === id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            <Icon className="w-4 h-4" /> {label}
+                        </button>
+                    ))}
+                </div>
+                {fileName && (
+                    <div className="flex items-center gap-2 min-w-0 text-sm text-muted-foreground">
+                        <FileSpreadsheet className="w-4 h-4 shrink-0 text-blue-400" />
+                        <span className="truncate max-w-[320px] text-gray-300" title={fileName}>{fileName}</span>
+                        <span className="shrink-0">· {data.length.toLocaleString()} rows loaded</span>
+                    </div>
+                )}
+            </div>
 
             {/* Comparison View */}
             {comparisonResult && (
@@ -123,13 +154,20 @@ export default function Dashboard({
                 totalCount={data.length}
             />
 
-            {/* Main Table */}
-            <DataTable
-                rows={filteredData}
-                columns={columns}
-                columnMeta={columnMeta}
-                isRowFlagged={isRowFlagged}
-            />
+            {view === 'table' ? (
+                <DataTable
+                    rows={filteredData}
+                    columns={columns}
+                    columnMeta={columnMeta}
+                    isRowFlagged={isRowFlagged}
+                    auditSettings={auditSettings}
+                    totals={totals}
+                />
+            ) : (
+                <Suspense fallback={<div className="glass rounded-xl p-8 text-center text-muted-foreground">Loading charts...</div>}>
+                    <TrendView rows={filteredData} data={data} columns={columns} metricCols={metricCols} />
+                </Suspense>
+            )}
         </div>
     );
 }

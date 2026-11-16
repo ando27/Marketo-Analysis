@@ -10,7 +10,7 @@ const DATE_PATTERNS = [
     /^\d{1,2}[- ][A-Za-z]{3,9}[- ]\d{2,4}/,    // 15-Mar-2024
 ];
 
-const isBlank = (val) => val === null || val === undefined || (typeof val === 'string' && val.trim() === '');
+export const isBlank = (val) => val === null || val === undefined || (typeof val === 'string' && val.trim() === '');
 
 const isNumericValue = (val) => {
     if (typeof val === 'number') return Number.isFinite(val);
@@ -22,7 +22,7 @@ const isDateString = (val) =>
     typeof val === 'string' && DATE_PATTERNS.some(p => p.test(val.trim())) && !isNaN(Date.parse(val));
 
 // Excel stores dates as day counts ("serials"). This range covers roughly 1954-2119.
-const isExcelSerial = (val) => typeof val === 'number' && val > 20000 && val < 80000;
+export const isExcelSerial = (val) => typeof val === 'number' && val > 20000 && val < 80000;
 
 /**
  * Converts a cell value to a local timestamp (ms), or NaN if it isn't a date.
@@ -37,7 +37,9 @@ export const toTime = (val) => {
         ).getTime();
     }
     if (typeof val === 'string') {
-        const s = val.trim();
+        let s = val.trim();
+        // "2026-03-15 10:30:00" -> "2026-03-15T10:30:00" so every browser can parse it
+        if (/^\d{4}-\d{2}-\d{2} \d/.test(s)) s = s.replace(' ', 'T');
         // Date-only ISO strings are parsed as UTC by default; force local time instead
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(`${s}T00:00:00`).getTime();
         if (isDateString(s)) return Date.parse(s);
